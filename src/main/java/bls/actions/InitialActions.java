@@ -11,75 +11,136 @@ import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.io.FileHandler;
 
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 
 public class InitialActions {
-    public static void start() {
+    private WebDriver driver;
+    public InitialActions(){
         WebDriverManager.chromedriver().setup();
-        WebDriver driver = new ChromeDriver();
-        driver.get("https://algeria.blsspainvisa.com");
-        WebElement closeDialog = driver.findElement(By.id("IDBodyPanel"));
-        if (closeDialog.isDisplayed()) {
-            WebElement closeButton = driver.findElement(By.className("popupCloseIcon"));
-            closeButton.click();
-        }
-        WebElement reserveLink = driver.findElement(By.partialLinkText("rendez-vous"));
-        reserveLink.click();
-        //TODO: subscribe section
-//        WebElement subscribeLink = driver.findElement(By.linkText("Click Here"));
-//        subscribeLink.click();
+        this.driver = new ChromeDriver();
+        this.driver.get("https://algeria.blsspainvisa.com");
+    }
+    public void login(String email) {
+        this.getToInitialForm();
         //TODO: Login section
         WebElement emailInput = driver.findElement(By.name("user_email"));
-        emailInput.sendKeys("ab28fb@gmail.com");
+        emailInput.sendKeys(email);
         WebElement continueButton = driver.findElement(By.name("continue"));
         continueButton.click();
+        if(driver.getCurrentUrl().startsWith("https://algeria.blsspainvisa.com/index.php"))this.login(email);
+        else System.out.println("system is opened");
 //        driver.quit();
     }
-
-    public void subscribe(String email, String phoneNumber) {
-        WebDriverManager.chromedriver().setup();
-        WebDriver driver = new ChromeDriver();
-        driver.get("https://algeria.blsspainvisa.com");
-        WebElement closeDialog = driver.findElement(By.id("IDBodyPanel"));
+    private void getToInitialForm(){
+        WebElement closeDialog = this.driver.findElement(By.id("IDBodyPanel"));
         if (closeDialog.isDisplayed()) {
-            WebElement closeButton = driver.findElement(By.className("popupCloseIcon"));
+            WebElement closeButton = this.driver.findElement(By.className("popupCloseIcon"));
             closeButton.click();
         }
-        WebElement reserveLink = driver.findElement(By.partialLinkText("rendez-vous"));
+        WebElement reserveLink = this.driver.findElement(By.partialLinkText("rendez-vous"));
         reserveLink.click();
+    }
+    public void subscribe(String email, String phoneNumber) {
+        this.getToInitialForm();
         //TODO: subscribe section
-        WebElement subscribeLink = driver.findElement(By.linkText("Click Here"));
+        WebElement subscribeLink = this.driver.findElement(By.linkText("Click Here"));
         subscribeLink.click();
-        WebElement userNameInput = driver.findElement(By.name("user_name"));
+        WebElement userNameInput = this.driver.findElement(By.name("user_name"));
         userNameInput.sendKeys("first-user");
-        WebElement emailInput = driver.findElement(By.name("user_email"));
+        WebElement emailInput = this.driver.findElement(By.name("user_email"));
         emailInput.sendKeys(email);
-        WebElement phoneNumberInput = driver.findElement(By.name("user_mobile_no"));
+        WebElement phoneNumberInput = this.driver.findElement(By.name("user_mobile_no"));
         phoneNumberInput.sendKeys(phoneNumber);
-        WebElement locationInput = driver.findElement(By.name("user_location"));
+        WebElement locationInput = this.driver.findElement(By.name("user_location"));
         locationInput.sendKeys("oran");
-        WebElement captchaImage = driver.findElement(By.id("captchaimg"));
+        WebElement captchaImage = this.driver.findElement(By.id("captchaimg"));
         File captchaImageFile = captchaImage.getScreenshotAs(OutputType.FILE);
+        WebElement refreshCaptcha = this.driver.findElement(By.cssSelector("[src='images/refresh.png']"));
+        String captchaText = this.readCaptcha(captchaImageFile);
+        WebElement captchaError = this.driver.findElement(By.id("errorSec"));
+        WebElement captchaInput = this.driver.findElement(By.id("captcha_code"));
+        captchaInput.sendKeys(captchaText);
+        while (captchaText.length() < 6||captchaError.isDisplayed()) {
+            refreshCaptcha.click();
+            captchaInput.clear();
+            captchaImageFile = captchaImage.getScreenshotAs(OutputType.FILE);
+            captchaText = this.readCaptcha(captchaImageFile);
+        captchaInput.sendKeys(captchaText);
+        }
+        WebElement register = this.driver.findElement(By.name("register"));
+        register.click();
+        //TODO: Verify mail with OTP
+
+//        this.driver.quit();
+    }
+
+    public String readCaptcha(File captchaFile) {
         try {
-            String path="/home/abdelwahab/Desktop/FirstBotDemo/resources/newFile.BMP";
-            FileHandler.copy(captchaImageFile, new File(path));
-            Thread.sleep(1000);
-//            File copiedImage=new File("newFile.png");
+            String path = "/home/abdelwahab/Desktop/FirstBotDemo/resources/" + Math.random() + ".png";
+            FileHandler.copy(captchaFile, new File(path));
+            this.normaliseCaptchaImage(path);
             ITesseract tesseract = new Tesseract();
-            String captchaText = tesseract.doOCR(new File(path));
-            System.out.println(captchaText);
-            WebElement captchaInput = driver.findElement(By.id("captcha_code"));
-            captchaInput.sendKeys(captchaText);
+            tesseract.setDatapath("/home/abdelwahab/Desktop/FirstBotDemo/tessdata");
+            String captchaText = "";
+            captchaText = tesseract.doOCR(new File(path));
+            captchaText = captchaText.replaceAll("[^a-zA-Z0-9]", "");
+            System.out.println("captcha :" + captchaText);
+            return captchaText.toLowerCase();
         } catch (TesseractException e) {
             System.out.println("exception went with do OCR ");
             System.out.println("error message: " + e.getMessage());
-        } catch(IOException e){
+            return "";
+
+        } catch (IOException e) {
             System.out.println("exception went with copying file");
             System.out.println("error message: " + e.getMessage());
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+            return "";
         }
-//        driver.quit();
+
+    }
+
+    private void normaliseCaptchaImage(String path) {
+        try {
+            BufferedImage bufferedImage = ImageIO.read(new File(path));
+            int height = bufferedImage.getHeight();
+            int width = bufferedImage.getWidth();
+            for (int i = 0; i < height; i++) {
+                for (int j = 0; j < width; j++) {
+                    //get pixel value
+                    int p = bufferedImage.getRGB(j, i);
+                    //get alpha
+                    int a = (p >> 24) & 0xff;
+                    //get red
+                    int r = (p >> 16) & 0xff;
+                    //get green
+                    int g = (p >> 8) & 0xff;
+                    //get blue
+                    int b = p & 0xff;
+                    if (this.isBlue(r, g, b)) {
+                        r = 0;
+                        g = 0;
+                        b = 0;
+                    } else {
+                        r = g = b = 255;
+                    }
+                    p = (a << 24) | (r << 16) | (g << 8) | b;
+                    bufferedImage.setRGB(j, i, p);
+
+                }
+
+            }
+            ImageIO.write(bufferedImage, "png", new File(path));
+        } catch (IOException e) {
+            System.out.println("error occurred in reading image in path " + path);
+            System.out.println(" error message is: " + e.getMessage());
+        }
+    }
+
+    private boolean isBlue(int red, int green, int blue) {
+        return (Math.max(red * 2, blue) == blue && Math.max(green, blue) == blue && blue > 100);
     }
 }
