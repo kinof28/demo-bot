@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.UUID;
 
 public class MailServices {
-    private final String MY_API_KEY = "7f496bc2db3ca5e7df17a1a4c25d7d65fb777e4ca9f6ea409f74b057d7bbe528";
+    private final String MY_API_KEY = "my key";
     private ApiClient defaultClient;
     private final Long TIMEOUT_MILLIS = 300000L;
     private ApiKeyAuth API_KEY;
